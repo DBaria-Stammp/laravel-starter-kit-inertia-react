@@ -56,16 +56,7 @@ final readonly class ProvisionRakeForIndent
             throw new InvalidArgumentException('A rake already exists for this indent.');
         }
 
-        $reference = self::referenceDateFromIndent($indent);
-
         $rakeNumber = $rakeNumber !== null && mb_trim($rakeNumber) !== '' ? mb_trim($rakeNumber) : null;
-        if ($rakeNumber !== null) {
-            $this->assertRakeNumberFreeForSidingInIndentMonth($rakeNumber, (int) $indent->siding_id, $reference);
-        }
-
-        if ($priorityNumber !== null) {
-            $this->assertPriorityNumberFreeForSidingInIndentMonth($priorityNumber, (int) $indent->siding_id, $reference);
-        }
 
         $powerPlant = $this->resolvePowerPlant($indent->destination);
 
@@ -125,49 +116,6 @@ final readonly class ProvisionRakeForIndent
         ]);
 
         return $rake->fresh();
-    }
-
-    public function assertRakeNumberFreeForSidingInIndentMonth(string $rakeNumber, int $sidingId, CarbonInterface $reference): void
-    {
-        $existing = Rake::query()
-            ->with('indent:id,indent_number,e_demand_reference_id')
-            ->where('rake_number', $rakeNumber)
-            ->where('siding_id', $sidingId)
-            ->whereYear('loading_date', $reference->year)
-            ->whereMonth('loading_date', $reference->month)
-            ->first();
-
-        if ($existing === null) {
-            return;
-        }
-
-        $context = '';
-        if ($existing->indent !== null) {
-            $ref = $existing->indent->e_demand_reference_id ?? $existing->indent->indent_number;
-            if ($ref !== null && $ref !== '') {
-                $context = " (indent: {$ref})";
-            }
-        }
-
-        throw new InvalidArgumentException(
-            "This rake number is already in use for this siding in the indent month{$context}. Open the existing indent to continue."
-        );
-    }
-
-    public function assertPriorityNumberFreeForSidingInIndentMonth(int $priorityNumber, int $sidingId, CarbonInterface $reference): void
-    {
-        $existsInMonth = Rake::query()
-            ->where('priority_number', $priorityNumber)
-            ->where('siding_id', $sidingId)
-            ->whereYear('loading_date', $reference->year)
-            ->whereMonth('loading_date', $reference->month)
-            ->exists();
-
-        if ($existsInMonth) {
-            throw new InvalidArgumentException(
-                'This rake priority number is already in use for this siding in the indent month.'
-            );
-        }
     }
 
     private function resolvePowerPlant(?string $destination): ?PowerPlant
